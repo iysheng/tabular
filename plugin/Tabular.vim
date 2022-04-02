@@ -55,12 +55,14 @@ set cpo&vim
 " Private Things                                                          {{{1
 
 " Dictionary of command name to command
+" 定义了一个字典
 let s:TabularCommands = {}
 
 " Generate tab completion list for :Tabularize                            {{{2
 " Return a list of commands that match the command line typed so far.
 " NOTE: Tries to handle commands with spaces in the name, but Vim doesn't seem
 "       to handle that terribly well... maybe I should give up on that.
+" 返回一个匹配到 command line 的 commands 的 list，
 function! s:CompleteTabularizeCommand(argstart, cmdline, cursorpos)
   let names = keys(s:TabularCommands)
   if exists("b:TabularCommands")
@@ -223,6 +225,9 @@ endfunction
 com! -nargs=+ -bang AddTabularPipeline
    \ call AddTabularPipeline(<q-args>, <bang>0)
 
+" command multiple_spaces
+" force / / map(a:lines, "substitute(v:val, '  *', '  ', 'g')") | \
+" tabular#TabularizeStrings(a:lines, '  ', 'l0')
 function! AddTabularPipeline(command, force)
   try
     let [ commandmap, rest ] = s:ChooseCommandMap(a:command)
