@@ -55,37 +55,58 @@ set cpo&vim
 " Private Things                                                          {{{1
 
 " Dictionary of command name to command
+" 定义了一个字典
 let s:TabularCommands = {}
 
 " Generate tab completion list for :Tabularize                            {{{2
 " Return a list of commands that match the command line typed so far.
 " NOTE: Tries to handle commands with spaces in the name, but Vim doesn't seem
 "       to handle that terribly well... maybe I should give up on that.
+" 返回一个匹配到 command line 的 commands 的 list，
 function! s:CompleteTabularizeCommand(argstart, cmdline, cursorpos)
   let names = keys(s:TabularCommands)
+" b 表示当前缓冲区, 如果在当前缓冲区定义了新的而 TabularCommand
+" 那么也要和这些 command 进行比对
   if exists("b:TabularCommands")
     let names += keys(b:TabularCommands)
   endif
 
+  " a 表示函数参数
+  " 贪婪匹配开头的所有空格,匹配 1 个以上非空格的内容，然后再贪婪匹配所有的空格
+  " 将上述格式的内容全部删除？？？
   let cmdstart = substitute(a:cmdline, '^\s*\S\+\s*', '', '')
 
+  " 从 names 中逐个过滤 cmd
+  " =~# 检查是否匹配右侧的表达式，匹配大小写
+  " ^ 表示开头
+  " \V 表示非常 nomagic
+  " 将 cmdstart 中的 \ 符号追加一个反斜杠 \, 即 \ -> \\
+  " 过滤出来符合 expr2 的内容
+  " filter({expr1}, {expr2})
   return filter(names, 'v:val =~# ''^\V'' . escape(cmdstart, ''\'')')
 endfunction
 
 " Choose the proper command map from the given command line               {{{2
 " Returns [ command map, command line with leading <buffer> removed ]
 function! s:ChooseCommandMap(commandline)
+  " 获取当前文件全局变量 TabularCommands
   let map = s:TabularCommands
+  " 获取传递的形参
   let cmd = a:commandline
 
+  " 如果 cmd 是以 buffer 加空格开头的
+  " =~# 表示判断是否可以匹配右侧的表达式，匹配大小写
   if cmd =~# '^<buffer>\s\+'
+    " 如果当前 buffer 没有定义 TabularCommands 变量,那么定义这个变量为字典并且为空
     if !exists('b:TabularCommands')
       let b:TabularCommands = {}
     endif
     let map = b:TabularCommands
+    " 删除 buffer 开头后面紧跟的所有空格和 tab 符号
     let cmd = substitute(cmd, '^<buffer>\s\+', '', '')
   endif
 
+  " 返回这个 map 和 cmd
   return [ map, cmd ]
 endfunction
 
@@ -220,18 +241,58 @@ endfunction
 " Each 'func' argument represents a function to be called.  This function
 " will have access to a:lines, a List containing one String per line being
 " filtered.
+" 这个函数将会访问 a:lines, 一个由每一行的 string 构成的 list
 com! -nargs=+ -bang AddTabularPipeline
    \ call AddTabularPipeline(<q-args>, <bang>0)
 
+" command: multiple_spaces / / map(a:lines, "substitute(v:val, '  *', '  ', 'g')") | tabular#TabularizeStrings(a:lines, '  ', 'l0')
+" force: 1 调试发现大部分 force 都是 1
 function! AddTabularPipeline(command, force)
   try
+    "echom a:command
+    "echom a:force
     let [ commandmap, rest ] = s:ChooseCommandMap(a:command)
+    "echom 1 l:commandmap
+    "echom 2 l:rest
 
+    " 返回 reset 中匹配指定 pattern 的字符串内容
+    " . 表示除了行结束符之外的任意字符
+    " \{-} 一个或者更多个，非贪婪匹配 这一段是要匹配的内容
+    " \ze 表示任意内容,匹配的结尾和 \zs 相反
+    " \s* 表示任意数量的空格
+    " / 表示结尾符号
     let name = matchstr(rest, '.\{-}\ze\s*/')
+    "echom 3 l:name
+    " 将刚才匹配到的内容全部删除,保留剩余部分到 pattern
     let pattern = substitute(rest, '.\{-}\s*\ze/', '', '')
+    "echom 4 l:pattern
 
+    " 从剩余的部分中继续匹配
+    " ^开头是 / 符号
+    " 紧跟 非贪婪匹配 的任意非结束字符
+    " ---------------------------------------------------------------------
+    " \\ 转义的反斜杠
+    " \@<! 表示 负回顾后发 0 宽断言，断言当前位置的前面不满足 pattern 的内容,
+    " 结合之前的反斜杠，表示当前位置的前面不能出现 \
+    " (\\\\\) 这一段内容是定义了一个 atom group
+    " 格式是这样的 \%( pattern \)， 套进去之后就是匹配 \\ 符号
+    " 再次结合就是匹配前面不是 \ 符号的 \\
+    " 结尾再此非贪婪匹配 \\ 符号,表示 1 或者更多
+    " 结尾是 / 符号，并且以此为起始，**匹配多个非结束符号(这段是匹配的内容)**
+    " ---------------------------------------------------------------------
     let commands = matchstr(pattern, '^/.\{-}\\\@<!\%(\\\\\)\{-}/\zs.*')
+    "echom 5 l:commands
+    " '之间的内容是需要计算执行的'
+    " \zs 标记匹配的开始
+    " . 任意一个非行结束符号的单字符
+    " \{-} 非贪婪匹配
+    " \\ \ 符号
+    " \@<! ???
+    " \% % 符号
+    " 重新匹配提取 pattern
     let pattern = matchstr(pattern, '/\zs.\{-}\\\@<!\%(\\\\\)\{-}\ze/')
+    " pattern 这个比较重要,这个匹配的就是定义的分割符号即：例子中是  两个空格
+    "echom 6 l:pattern "RED"
 
     if empty(name) || empty(pattern)
       throw "Invalid arguments!"
@@ -241,12 +302,15 @@ function! AddTabularPipeline(command, force)
       throw string(name) . " is already defined, use ! to overwrite."
     endif
 
+    " 将 commands 拆分成 list ？？？
     let commandlist = s:SplitCommands(commands)
+    "echom 7 l:commandlist
 
     if empty(commandlist)
       throw "Must provide a list of functions!"
     endif
 
+	" 向 map 中添加匹配的模式和对应的处理命令
     let commandmap[name] = { 'pattern' : pattern, 'commands' : commandlist }
   catch
     echohl ErrorMsg
@@ -263,6 +327,8 @@ endfunction
 com! -nargs=* -range -complete=customlist,<SID>CompleteTabularizeCommand
    \ Tabularize <line1>,<line2>call Tabularize(<q-args>)
 
+" 添加了 range 参数
+" 可以使用 a:firstline a:lastline
 function! Tabularize(command, ...) range
   let piperange_opt = {}
   if a:0
@@ -285,8 +351,12 @@ function! Tabularize(command, ...) range
   let range = a:firstline . ',' . a:lastline
 
   try
+    " 根据传入的 command ，尝试从定义的 pattern 的 map 中查找
     let [ pattern, format ] = s:ParsePattern(command)
+    echom 0: l:pattern
+    echom 1: l:format
 
+    " 如果找到了对应的 pattern
     if !empty(pattern)
       let cmd  = "tabular#TabularizeStrings(a:lines, " . string(pattern)
 

@@ -206,9 +206,12 @@ endfunction
 " together with enough space padding to guarantee that the nth delimiter of
 " each string is aligned.
 function! tabular#TabularizeStrings(strings, delim, ...)
+  " 最多支持一个可变参数，如果超过这个值报错
   if a:0 > 1
     echoerr "TabularizeStrings accepts only 2 or 3 arguments (got ".(a:0+2).")"
     return 1
+  else
+    "echoerr a:strings
   endif
 
   let formatstr = (a:0 ? a:1 : g:tabular_default_format)
