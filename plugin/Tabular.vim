@@ -65,12 +65,24 @@ let s:TabularCommands = {}
 " 返回一个匹配到 command line 的 commands 的 list，
 function! s:CompleteTabularizeCommand(argstart, cmdline, cursorpos)
   let names = keys(s:TabularCommands)
+" b 表示当前缓冲区, 如果在当前缓冲区定义了新的而 TabularCommand
+" 那么也要和这些 command 进行比对
   if exists("b:TabularCommands")
     let names += keys(b:TabularCommands)
   endif
 
+  " a 表示函数参数
+  " 贪婪匹配开头的所有空格,匹配 1 个以上非空格的内容，然后再贪婪匹配所有的空格
+  " 将上述格式的内容全部删除？？？
   let cmdstart = substitute(a:cmdline, '^\s*\S\+\s*', '', '')
 
+  " 从 names 中逐个过滤 cmd
+  " =~# 检查是否匹配右侧的表达式，匹配大小写
+  " ^ 表示开头
+  " \V 表示非常 nomagic
+  " 将 cmdstart 中的 \ 符号追加一个反斜杠 \, 即 \ -> \\
+  " 过滤出来符合 expr2 的内容
+  " filter({expr1}, {expr2})
   return filter(names, 'v:val =~# ''^\V'' . escape(cmdstart, ''\'')')
 endfunction
 
