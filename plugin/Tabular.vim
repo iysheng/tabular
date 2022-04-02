@@ -89,17 +89,24 @@ endfunction
 " Choose the proper command map from the given command line               {{{2
 " Returns [ command map, command line with leading <buffer> removed ]
 function! s:ChooseCommandMap(commandline)
+  " 获取当前文件全局变量 TabularCommands
   let map = s:TabularCommands
+  " 获取传递的形参
   let cmd = a:commandline
 
+  " 如果 cmd 是以 buffer 加空格开头的
+  " =~# 表示判断是否可以匹配右侧的表达式，匹配大小写
   if cmd =~# '^<buffer>\s\+'
+    " 如果当前 buffer 没有定义 TabularCommands 变量,那么定义这个变量为字典并且为空
     if !exists('b:TabularCommands')
       let b:TabularCommands = {}
     endif
     let map = b:TabularCommands
+    " 删除 buffer 开头后面紧跟的所有空格和 tab 符号
     let cmd = substitute(cmd, '^<buffer>\s\+', '', '')
   endif
 
+  " 返回这个 map 和 cmd
   return [ map, cmd ]
 endfunction
 
@@ -234,11 +241,12 @@ endfunction
 " Each 'func' argument represents a function to be called.  This function
 " will have access to a:lines, a List containing one String per line being
 " filtered.
+" 这个函数将会访问 a:lines, 一个由每一行的 string 构成的 list
 com! -nargs=+ -bang AddTabularPipeline
    \ call AddTabularPipeline(<q-args>, <bang>0)
 
-" command multiple_spaces
-" force / / map(a:lines, "substitute(v:val, '  *', '  ', 'g')") | \
+" command: multiple_spaces
+" force: / / map(a:lines, "substitute(v:val, '  *', '  ', 'g')") | \
 " tabular#TabularizeStrings(a:lines, '  ', 'l0')
 function! AddTabularPipeline(command, force)
   try
@@ -264,6 +272,7 @@ function! AddTabularPipeline(command, force)
       throw "Must provide a list of functions!"
     endif
 
+	" 向 map 中添加模式和对应的命令
     let commandmap[name] = { 'pattern' : pattern, 'commands' : commandlist }
   catch
     echohl ErrorMsg
