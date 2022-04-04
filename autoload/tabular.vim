@@ -205,6 +205,8 @@ endfunction
 " the provided format (optional) or the default format, and join them back
 " together with enough space padding to guarantee that the nth delimiter of
 " each string is aligned.
+" 提供一个 strings 的 list 和一个分割符号，将这些 strings 根据这个分割符号
+" 重新分割，然后再将他们找到设置的格式重新组合
 function! tabular#TabularizeStrings(strings, delim, ...)
   " 最多支持一个可变参数，如果超过这个值报错
   if a:0 > 1
@@ -323,30 +325,43 @@ function! tabular#PipeRangeWithOptions(includepat, filterlist, options) range
   let top = a:firstline
   let bot = a:lastline
 
+  "echom l:top . ',' . l:bot
+  " 传递是 pattern
+  "echom a:includepat
+  " 传递是 command list
+  "echom a:filterlist
   let s:do_gtabularize = (get(a:options, 'mode', '') ==# 'GTabularize')
 
   if !s:do_gtabularize
+	"echom "This is default mode"
     " In the default mode, apply range extension logic
     if a:includepat != '' && top == bot
       if top < 0 || top > line('$') || getline(top) !~ a:includepat
         return
       endif
+	  " 如果 top 行号比 1 大。并且 top -  1 的内容匹配 a:includepat
+	  " 前提这些行必须是连续的
       while top > 1 && getline(top-1) =~ a:includepat
         let top -= 1
       endwhile
+	  " bot 也是类似的，会格式化上下连续的包含有匹配内容的行
       while bot < line('$') && getline(bot+1) =~ a:includepat
         let bot += 1
       endwhile
     endif
   endif
 
+  " 将这些包含匹配内容的行的内容都读取到 lines ？？？
   let lines = map(range(top, bot), 'getline(v:val)')
 
+  " 遍历 command list 中的 command
   for filter in a:filterlist
+	"echom l:filter
     if type(filter) != type("")
       echoerr "PipeRange: Bad filter: " . string(filter)
     endif
 
+	" 执行命令
     call s:FilterString(lines, filter)
 
     unlet filter

@@ -331,7 +331,9 @@ com! -nargs=* -range -complete=customlist,<SID>CompleteTabularizeCommand
 " 可以使用 a:firstline a:lastline
 function! Tabularize(command, ...) range
   let piperange_opt = {}
+  " 如果带有可变参数
   if a:0
+    " 标记 piperange_opt 为第一个可变参数
     let piperange_opt = a:1
   endif
 
@@ -353,10 +355,12 @@ function! Tabularize(command, ...) range
   try
     " 根据传入的 command ，尝试从定义的 pattern 的 map 中查找
     let [ pattern, format ] = s:ParsePattern(command)
-    echom 0: l:pattern
-    echom 1: l:format
+	" multiple_spaces 竟然找不到这个 command 的 pattern
+    "echom 0 pattern
+    "echom 1 format
+    "echom 2 command
 
-    " 如果找到了对应的 pattern
+    " 如果 pattern 不为空
     if !empty(pattern)
       let cmd  = "tabular#TabularizeStrings(a:lines, " . string(pattern)
 
@@ -368,15 +372,20 @@ function! Tabularize(command, ...) range
 
       exe range . 'call tabular#PipeRangeWithOptions(pattern, [ cmd ], '
                       \ . 'piperange_opt)'
+    " 如果 pattern 为空
     else
+	  "echo "pattern zero"
+	  " b: 表示当前 buffer 的变量
       if exists('b:TabularCommands') && has_key(b:TabularCommands, command)
         let usercmd = b:TabularCommands[command]
+	  " s 表示当前 source 范围，范围比 b 更广
       elseif has_key(s:TabularCommands, command)
         let usercmd = s:TabularCommands[command]
       else
         throw "Unrecognized command " . string(command)
       endif
 
+	  "echom usercmd
       exe range . 'call tabular#PipeRangeWithOptions(usercmd["pattern"], '
                       \ . 'usercmd["commands"], piperange_opt)'
     endif
